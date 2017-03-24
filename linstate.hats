@@ -62,8 +62,8 @@ fun{a, b: vt0ype}
   ( xs: List0_vt(a)
   , fopr: a -<cloref1> M(b)
   ) : M(List0_vt(b))
-  = let implement
-          mapM_vt$fopr<a, b>(x) = fopr(x)
+  = let val () = $tempenver(fopr)
+        implement mapM_vt$fopr<a, b>(x) = fopr(x)
     in mapM_vt_aux<a, b>(xs) 
     end
 
@@ -74,7 +74,7 @@ fun{a, b: vt0ype}
  * add [reassume monad_vtype].
  *)
 absvtype 
-  state_vtype
+  state_vtype = ptr
 vtypedef 
   state = state_vtype
 
