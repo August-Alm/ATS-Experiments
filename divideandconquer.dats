@@ -15,18 +15,17 @@ staload _(*M*) = "libats/DATS/linmap_avltree.dats"
 (* Function in [linmap_avltree] that used to miss implementation. *)
 
 implement{key, itm}
-  $M.linmap_insert_any
-  (map, k0, x0) = () 
-  where
-    val- ~None_vt() 
-      = $M.linmap_insert_opt<key, itm>(map, k0, x0)
-  end
+  $M.linmap_insert_any(map, k0, x0) = () 
+    where
+      val- ~None_vt() =
+        $M.linmap_insert_opt<key, itm>(map, k0, x0)
+    end
 
 (* We'll need the Either type. *)
 
 datavtype 
-  Either_bool(a: vt0ype+, b: vt0ype+, bool) 
-  = Left(a, b, true) of a | Right(a, b, false) of b
+  Either_bool(a: vt0ype+, b: vt0ype+, bool) =
+    Left(a, b, true) of a | Right(a, b, false) of b
 
 stadef 
   Either_bool = Either_bool
@@ -40,19 +39,18 @@ fun {res: vt0p}{a: t0p}
   list_vt_foldleft 
   ( xs: List0_vt(INV(a))
   , init: res
-  , fopr: (res, a) -> res
-  ) : res 
-  = case xs of
+  , fopr: (res, a) -> res ): 
+  res = 
+    case xs of
     | ~list_vt_nil() => init
-    | ~list_vt_cons(x0, xs1) =>
-      let val init = fopr(init, x0)
+    | ~list_vt_cons(x0, xs1) => let 
+          val init = fopr(init, x0)
           val xs1 = xs1
-      in list_vt_foldleft(xs1, init, fopr)
-      end
+        in list_vt_foldleft(xs1, init, fopr) end
 
 (* Here we go! *)
 
-abst@ype 
+abst0ype 
   input_type  
 typedef 
   input = input_type 
@@ -75,9 +73,7 @@ typedef
 typedef
   Recur = input -> Either( output
                          , ( List0_vt(input)
-                           , List0_vt(output) -> output
-                           )
-                         )
+                           , List0_vt(output) -> output ))
 
 (* There is a naive way to "conquer" and write down a function
  * [conq: Recur -> (input -> output)], namely by:
@@ -98,80 +94,76 @@ typedef
 
 (* After the following assumption we can [reassume monad_vtype]
  * as the linear state monad with [state = map(input, output)].
-*)
+ *)
 assume state_vtype = $M.map(input, output)
 
 fun{} (* Only works for [state] State-monad! *)
   memoize 
   ( t: cfun(input, M(output)) -<cloref1> 
        cfun(input, M(output))
-  , x: input
-  ) : output
-  = let (* Reassume State-monad! *)
+  , x: input ): 
+  output = 
+    let (* Reassume State-monad! *)
       reassume monad_vtype
 
       fun 
-        foo(x: input):<cloref1> M(output)
-        = llam(s) => let val y_opt = $M.linmap_search_opt(s, x)
+        foo(x: input):<cloref1> M(output) =
+          llam(s) => let val y_opt = $M.linmap_search_opt(s, x)
                      in case y_opt of
                         | ~None_vt()  => bar(x)(s)
                         | ~Some_vt(y) => return_vt<output>(y)(s)
                      end
   
       and 
-        bar(x: input):<cloref1> M(output)
-        = llam(s) => let val (s1, y1) = ((t foo)(x))(s)
+        bar(x: input):<cloref1> M(output) =
+          llam(s) => let val (s1, y1) = ((t foo)(x))(s)
                          var s1 = s1
-                     in 
-                         $M.linmap_insert_any(s1, x, y1); (s1, y1)
-                     end
+                     in $M.linmap_insert_any(s1, x, y1)
+                      ; (s1, y1) end
     in
       state_eval(foo(x), $M.linmap_nil())
     end
   
 fun{} (* This one works for any monad! *) 
   distr
-  (go: Recur): cfun(input, M(output)) -<cloref1> 
-               cfun(input, M(output)) 
-  = lam(u) => lam(x) =<cloref1> 
+  (go: Recur): 
+  cfun(input, M(output)) -<cloref1> cfun(input, M(output)) =
+    lam(u) => lam(x) =<cloref1> 
     case go(x) of
     | ~Left(y)         => return_vt(y)
     | ~Right(@(xs, h)) => bind_vt
                           ( mapM_vt(xs, u)
-                          , lam(ys) => return_vt(h(ys))
-                          )
+                          , lam(ys) => return_vt(h(ys)) )
 
 fun{} (* "Universal" way to conquer recursion. *)
   conquer
-  (go: Recur): cfun(input, output) 
-  = lam(x) => memoize(distr(go), x) 
+  (go: Recur): cfun(input, output) =
+    lam(x) => memoize(distr(go), x) 
 
 (* Example *)
 
 assume input_type = intGte(0)
 assume output_type = $I.Intinf
 
-implement
-  gcompare_val_val<input>(x, y) = $I.compare(x, y)
-
 fun
   list_vt_sum_intinf
-  (xs: List0_vt(output)): output
-  = list_vt_foldleft<output><output>
+  (xs: List0_vt(output)): output = 
+    list_vt_foldleft<output><output>
     ( xs
     , $I.intinf_make_int(0)
-    , lam(y1, y2) => $I.add_intinf_intinf(y1, y2)
-    )
+    , lam(y1, y2) => $I.add_intinf_intinf(y1, y2) )
+
+implement
+  gcompare_val_val<input>(x, y) = g0int_compare(x, y)
 
 fun 
   divide_fib_fun
-  (x: input): Either(output, @(List0_vt(input), List0_vt(output) -> output))
-  = let val cmp = compare(2, x) 
+  (x: input): 
+  Either(output, @(List0_vt(input), List0_vt(output) -> output)) = 
+    let val cmp = compare(2, x) 
     in if cmp > 0 then Left($I.intinf_make_int(x))
        else Right @( $list_vt{input}( x-1 , x-2 )
-                   , list_vt_sum_intinf
-                   )
-    end
+                   , list_vt_sum_intinf ) end
  
 val 
   divide_fib: Recur = divide_fib_fun
