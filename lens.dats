@@ -1,5 +1,5 @@
-#include "share/atspre_define.hats"
 #include "share/atspre_staload.hats"
+#staload "libats/ML/SATS/basis.sats"
 
 (* ****** ****** ****** *)
 
@@ -13,41 +13,63 @@
 
 (* ****** ****** ****** *)
 
-(* We will be doing typical functional programming and mostly use
- * boxed data. Functions will be closures by default.
- *)
-typedef
-cfun(a: t0p, b: t0p) = a -<cloref1> b
-
 (* A "lens" from [a] to [b] is a "get" and a "set" function, 
  * abstracting the idea that [a] is a record with a field of
- * type [b].
+ * type [b]. 
  *)
+abstype
+Lens_type(a: t0p, b: t0p)
+
 typedef
-Lens(a: t0p, b: t0p) = '{get = cfun(a, b), set = cfun(a, cfun(b, a))}
+Lens(a: t0p, b: t0p) = Lens_type(a, b) 
+
+extern fun{a, b: t0p}
+lens_get(Lens(a, b), a): b
+
+extern fun{a, b: t0p}
+lens_set(Lens(a, b), a, b): a
+
+extern fun{a, b: t0p}
+lens_make(get: cfun(a, b), set: cfun(a, b, a)): Lens(a, b)
+
+local 
+  assume 
+  Lens_type(a: t0p, b: t0p) = '(cfun(a, b), cfun(a, b, a))
+in
+  implement{a, b}
+  lens_get(lns, x) = lns.0(x)
+
+  implement{a, b}
+  lens_set(lns, x, y) = lns.1(x, y)
+
+  implement{a, b}
+  lens_make(get, set) = '(get, set)
+end
+
+overload .get with lens_get
+overload .set with lens_set
 
 (* Functions can be applied "over" a lens, abstracting the idea
  * that a function can be applied to a single field in a record.
  *)
 fn{a, b: t0p}
 over
-( ln: Lens(a, b)
-, f: cfun(b, b) ):<cloref1>
+( lns: Lens(a, b)
+, fopr: cfun(b, b) ):
 cfun(a, a) =
-  lam(x) => ln.set(x)(f(ln.get(x)))
+  lam(x) => lns.set(x, fopr(lns.get(x)))
 
 (* Lenses compose, like functions. Note that the order is the
  * order of dot notation!
  *)
 fn{a, b, c: t0p}
 lens_compose
-( ln1: Lens(a, b)
-, ln2: Lens(b, c) ):
+( lns1: Lens(a, b)
+, lns2: Lens(b, c) ):
 Lens(a, c) =
-  let val (get1, set1) = (ln1.get, ln1.set)
-      val (get2, set2) = (ln2.get, ln2.set)
-  in '{ get = lam(x) => get2(get1(x))
-      , set = lam(x) => lam(z) => set1(x)(set2(get1(x))(z)) } end
+  lens_make
+  ( lam(x) => lns2.get(lns1.get(x))
+  , lam(x, z) => lns1.set(x, lns2.set(lns1.get(x), z)) )
 
 (* To make notation a bit nicer: *)
 symintr ::
@@ -70,35 +92,30 @@ val
 address: Lens(Person, Address) =
   let val address_get: cfun(Person, Address) =
         lam(p: Person) =<cloref1> p._address
-      val address_set: cfun(Person, cfun(Address, Person)) =
-        lam(p: Person) =<cloref1>
-          lam(a) =<cloref1> '{ _name = p._name
-                             , _age = p._age
-                             , _address = a }
-  in '{get = address_get, set = address_set} end
+      val address_set: cfun(Person, Address, Person) =
+        lam(p: Person, a: Address) =<cloref1> '{ _name = p._name
+                                               , _age = p._age
+                                               , _address = a }
+  in lens_make(address_get, address_set) end
 
 val
 zip: Lens(Address, int) =
   let val zip_get: cfun(Address, int) =
         lam(a: Address) =<cloref1> a._zip
-      val zip_set: cfun(Address, cfun(int, Address)) =
-        lam(a: Address) =<cloref1>
-          lam(x: int) =<cloref1> '{ _street = a._street
-                                  , _zip = x }
-  in '{get = zip_get, set = zip_set} end
+      val zip_set: cfun(Address, int, Address) =
+        lam(a: Address, x: int) =<cloref1> '{ _street = a._street
+                                            , _zip = x }
+  in lens_make(zip_get, zip_set) end
 
 (* We now apply a function over a composite lens: *)
 val
 john = '{ _name = "John"
         , _age = 23
-        , _address = '{ _street = "venusbergstrasse"
+        , _address = '{ _street = "Venusbergstrasse"
                       , _zip = 123 }}: Person
 
-fn
-add3(x: int):<cloref1> int = x + 3
-
 val
-john = over<Person, int>(address::zip, add3)(john)
+john = over(address::zip, lam(x) => x + 3)(john)
 
 (* Lenses are much more general and flexible than the above example
  * showcases. In particular, they interplay nicely with functors, as 
@@ -111,11 +128,11 @@ john = over<Person, int>(address::zip, add3)(john)
  * 
  * fn{a, b: t0p}{F: t0p -> t0p}
  * over_functor
- * ( ln: Lens(a, b)
+ * ( lns: Lens(a, b)
  * , F_map: Fun(F)
- * , f: cfun(b, F(b)) ):<cloref1>
+ * , fopr: cfun(b, F(b)) ):
  * cfun(a, F(a)) =
- *   lam(x) => F_map(ln.set(x))(f(ln.get(x)))
+ *   lam(x) => F_map(lam(y) => lns.set(x, y))(fopr(lns.get(x)))
  *)
 implement
-main0() = println!(john._address._zip)
+main0() = println!((address::zip).get(john))
