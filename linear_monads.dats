@@ -17,12 +17,6 @@
 
 (* ****** ****** ****** *)
 
-extern fun 
-freeptr(p: ptr):void = "mac#free"
-
-fun{a: vt0ype}
-freevt(x: a): void = freeptr($UN.castvwtp0{ptr}(x))
-
 macdef 
 freehom(h) = cloptr_free($UN.castvwtp0{cloptr(void)} ,(h))
 
@@ -94,9 +88,9 @@ monad_is_functor
 {t: fvtype}
 (MONAD(t_name, t)): FUNCTOR(t_name, t)
 
-symintr .bind return join
-overload .bind with monad_bind
-overload .bind with monad_bind_const
+symintr bind return join
+overload bind with monad_bind
+overload bind with monad_bind_const
 overload return with monad_return
 overload join with monad_join
 
@@ -134,28 +128,22 @@ m(list_vt(b, n)) =
     , acc: qlist(INV(b), k) ):
     m(list_vt(b, k+n)) =
       case xs of
-      | ~list_vt_nil() => let 
-            val ys = qlist_takeout_list{b}{k}(acc)   // takeout is O(1) 
+      | ~list_vt_nil() => 
+          let val ys = qlist_takeout_list{b}{k}(acc)   // takeout is O(1) 
           in qlist_free_nil{b}(acc)
-           ; monad_return<m_name><list_vt(b, k+n)>(pfm| ys) end
-      | ~list_vt_cons(x, xs1) => let
-            val fx = mapM_list_vt$fopr<a, m(b)>(x)
-            val xs1 = $UN.castvwtp0{ptr}(xs1)
-            val acc = $UN.castvwtp0{ptr}(acc)
-          in monad_bind<m_name><b, list_vt(b, k+n)>
+           ; monad_return<m_name><list_vt(b, k+n)>(pfm| ys) 
+          end
+      | ~list_vt_cons(x, xs1) => 
+          monad_bind<m_name><b, list_vt(b, k+n)>
              ( pfm
-             | fx
-             , llam(y: b) => let
-                   val xs1 = $UN.castvwtp0{list_vt(a, n-1)}(xs1)
-                   val acc = $UN.castvwtp0{qlist(b, k)}(acc)
-                 in qlist_insert<b>{k}(acc, y)
-                  ; loop(pfm| xs1, acc) end ) end
-     
-     val acc = qlist_make_nil{b}()
-   in
-     loop{m}{n}(pfm| xs, acc)
-   end
-
+             | mapM_list_vt$fopr<a, m(b)>(x)
+             , llam(y: b) => ( qlist_insert<b>{k}(acc, y)
+                             ; loop(pfm| xs1, acc) ) )
+    
+    val acc = qlist_make_nil{b}()
+  in
+    loop{m}{n}(pfm| xs, acc)
+  end
 
 fun{m_name: type}{a, b: vt0ype}
 mapM_list_vt_fun
@@ -209,22 +197,18 @@ m(list_vt(a, n)) =
   | ~list_vt_nil() =>
       monad_return<m_name><list_vt(a, n)>(pfm| list_vt_nil{a}())
   | ~list_vt_cons(mx, mxs1) =>
-      let val mxs1 = $UN.castvwtp0{ptr}(mxs1)
-      in monad_bind<m_name><a, list_vt(a, n)>
-         ( pfm
-         | mx
-         , llam(x) => let 
-               val mxs1 = $UN.castvwtp0{list_vt(m(a), n-1)}(mxs1)
-               prval () = lemma_list_vt_param(mxs1)
-               val x = $UN.castvwtp0{ptr}(x)
-             in monad_bind<m_name><list_vt(a, n-1), list_vt(a, n)>
-                ( pfm
-                | sequence_list_vt(pfm| mxs1)
-                , llam(xs) => let
-                      val x = $UN.castvwtp0{a}(x)
-                      prval () = lemma_list_vt_param(xs)
-                    in monad_return<m_name><list_vt(a, n)>
-                       (pfm| list_vt_cons(x, xs)) end ) end ) end end
+      monad_bind<m_name><a, list_vt(a, n)>
+      ( pfm
+      | mx
+      , llam(x) => 
+          let prval () = lemma_list_vt_param(mxs1)
+          in monad_bind<m_name><list_vt(a, n-1), list_vt(a, n)>
+             ( pfm
+             | sequence_list_vt(pfm| mxs1)
+             , llam(xs) => 
+                 let prval () = lemma_list_vt_param(xs)
+                 in monad_return<m_name><list_vt(a, n)>
+                    (pfm| list_vt_cons(x, xs)) end ) end ) end
 
 (* ****** ****** ***** *)
 
@@ -261,38 +245,34 @@ monad_bind<Option_vt_name><a, b>(pfm| x_opt, fopr) =
 
 implement
 main0() = let 
-    datavtype I_dvt(a: t0p) = I of a
-    vtypedef int_vt = I_dvt(int)
-
-    val xs = $list_vt{int_vt}(I(1), I(2), I(3))
+    val xs = $list_vt{int}(1, 2, 3)
    
-    val fopr = llam(x: int_vt): Option_vt(int_vt) =<cloptr1> 
-                 monad_return<Option_vt_name><int_vt>(pfoptm| x)
+    val fopr = 
+      llam(x: int): Option_vt(int) =<cloptr1> return(pfoptm| x)
     
     val xsopt = mapM_list_vt_cloptr(pfoptm| xs, fopr)
     
     val () = freehom(fopr)
 
-    val yopts = $list_vt{Option_vt(int_vt)}
-                  (Some_vt(I(4)), Some_vt(I(5)), Some_vt(I(6)))
+    val yopts = 
+      $list_vt{Option_vt(int)}(Some_vt(4), Some_vt(5), Some_vt(6))
 
     val- ~Some_vt(xs) = xsopt
 
     val- ~Some_vt(ys) = sequence_list_vt(pfoptm| yopts)
 
-    fun printout{n: int}(ks: list_vt(int_vt, n)): void =
+    fun printout{n: int}(ks: list_vt(int, n)): void =
       case ks of
       | ~list_vt_nil()        => ()
-      | ~list_vt_cons(k, ks1) => let val- ~I(k) = k
-                                 in (println!(k); printout(ks1)) end
+      | ~list_vt_cons(k, ks1) => (println!(k); printout(ks1))
   in 
-    printout{3}(xs); printout(ys) 
+    printout(xs); printout(ys) 
   end
 
 (* Valgrind says:
- * ==4389== HEAP SUMMARY:
- * ==4389==     in use at exit: 0 bytes in 0 blocks
- * ==4389==   total heap usage: 40 allocs, 40 frees, 520 bytes allocated
- * ==4389== 
- * ==4389== All heap blocks were freed -- no leaks are possible
+ * ==2312== HEAP SUMMARY:
+ * ==2312==     in use at exit: 0 bytes in 0 blocks
+ * ==2312==   total heap usage: 34 allocs, 34 frees, 472 bytes allocated
+ * ==2312== 
+ * ==2312== All heap blocks were freed -- no leaks are possible
  *) 
