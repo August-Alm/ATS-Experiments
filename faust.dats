@@ -295,36 +295,6 @@ symintr <:>
 infix <:>
 overload <:> with sequential_composition
 
-extern fun{a: vt0ype}
-signal_copy
-{n: int}(u: !signal(a)): signal(a) 
-(*
-implement(a: t0ype)
-signal_copy<a>(u) = 
-  let fun loop
-      (u: !signal(a)): signal(a) =
-        $ldelay(case !u of
-        | stream_vt_cons(x, xs) => 
-            let val x' = x
-                val xs' = xs
-             in stream_vt_cons(x', xs')
-             end
-        | stream_vt_nil() => stream_vt_nil()
-        , ~u
-        )
-  in $effmask_all(loop(u))
-  end
- The next function requires implementation of
- * [mem$zero()] and of 
-   [
-     list_vt_copylin$copy<signal(a)>(&signal(a)): signal(a)
-   ]
-   in order to compile. For [a: t0ype] one should 
-   implement the latter by
-   [
-     $UN.ptr0_get<a>(addr@ x)
-   ]
- *)
 fun{a: vt0ype}  // <^>
 recursive_composition
 {m1, n1, m2, n2: int| n1 >= m2; m1 > n2; m2 > 0}
